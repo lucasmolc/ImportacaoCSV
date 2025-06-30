@@ -194,8 +194,24 @@ def convert_sqlserver_conn_str(conn_str):
     
     return conn_str
 
+def check_table_exists(db_connection, table_name):
+    """Check if table exists in database"""
+    try:
+        # Use SQLAlchemy to check if table exists
+        inspector = sqlalchemy.inspect(db_connection)
+        tables = inspector.get_table_names()
+        return table_name.lower() in [t.lower() for t in tables]
+    except Exception as e:
+        raise Exception(f"Erro ao verificar se a tabela existe: {str(e)}")
+
 def insert_data(db_connection, table_name, data):
     """Insert data into database table"""
+    # Check if table exists before trying to insert data
+    if not check_table_exists(db_connection, table_name):
+        raise Exception(f"❌ Tabela '{table_name}' não existe no banco de dados. "
+                       f"Por favor, crie a tabela antes de executar a importação.")
+    
+    # Insert data using 'append' mode (will fail if table doesn't exist due to our check above)
     data.to_sql(table_name, con=db_connection, if_exists='append', index=False)
 
 # ============================================================================
@@ -242,6 +258,14 @@ def process_import(csv_file, db_url, table_name, config=None):
     # Connect to the database
     engine = sqlalchemy.create_engine(db_url)
     
+    # Validate table exists before processing
+    print(f"🔍 Verificando se a tabela '{table_name}' existe...")
+    if not check_table_exists(engine, table_name):
+        raise Exception(f"❌ Tabela '{table_name}' não existe no banco de dados. "
+                       f"Por favor, crie a tabela antes de executar a importação.")
+    
+    print(f"✅ Tabela '{table_name}' encontrada no banco de dados")
+    
     # Get chunk size from config or use default
     chunk_size = 1000
     if config and config.get("Settings", {}).get("ChunkSize"):
@@ -286,6 +310,7 @@ def get_table_name():
     print("   • Apenas letras, números e underscores")
     print("   • Máximo 128 caracteres")
     print("   • Não pode ser palavra reservada do SQL")
+    print("   ⚠️  A tabela DEVE EXISTIR no banco de dados")
     
     return get_user_input_with_validation(
         "\n➤ Nome da tabela: ",
