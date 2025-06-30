@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-CSV to SQL Server Import Tool
-Ferramenta para importação de dados CSV para SQL Server
-
-Author: Lucas Mol
-Version: 2.0
-"""
+# Ferramenta de Importação CSV para SQL Server
+# Importa dados de arquivos CSV para bancos de dados SQL Server
+# 
+# Autor: Lucas Mol
+# Versão: 2.1
 
 import sys
 import subprocess
@@ -21,7 +19,7 @@ from tqdm import tqdm
 # ============================================================================
 
 def install_and_import(package):
-    """Install package if not present and import it"""
+    # Instala pacote se não estiver presente e o importa
     try:
         __import__(package)
     except ImportError:
@@ -40,21 +38,21 @@ import sqlalchemy
 # ============================================================================
 
 def validate_table_name(table_name):
-    """Validate SQL Server table name according to naming conventions"""
+    # Valida nome da tabela SQL Server de acordo com convenções de nomenclatura
     if not table_name or not table_name.strip():
         return False, "Nome da tabela não pode estar vazio."
     
     table_name = table_name.strip()
     
-    # Check length (SQL Server max identifier length is 128)
+    # Verifica comprimento (SQL Server max identifier length é 128)
     if len(table_name) > 128:
         return False, "Nome da tabela não pode ter mais de 128 caracteres."
     
-    # Check for invalid characters (only alphanumeric and underscore allowed)
+    # Verifica caracteres inválidos (apenas alfanuméricos e underscore permitidos)
     if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
         return False, "Nome da tabela deve começar com letra ou underscore e conter apenas letras, números e underscores."
     
-    # Check for SQL Server reserved words
+    # Verifica palavras reservadas do SQL Server
     reserved_words = {
         'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER', 'TABLE', 'INDEX', 
         'VIEW', 'PROCEDURE', 'FUNCTION', 'TRIGGER', 'DATABASE', 'SCHEMA', 'USER', 'ROLE',
@@ -70,36 +68,36 @@ def validate_table_name(table_name):
     return True, "Nome válido."
 
 def validate_csv_file_path(file_path):
-    """Validate CSV file path"""
+    # Valida caminho do arquivo CSV
     if not file_path or not file_path.strip():
         return False, "Caminho do arquivo não pode estar vazio."
     
     file_path = file_path.strip()
     
-    # Remove quotes if present
+    # Remove aspas se presentes
     if file_path.startswith('"') and file_path.endswith('"'):
         file_path = file_path[1:-1]
     
-    # Check if path exists
+    # Verifica se o caminho existe
     if not os.path.exists(file_path):
         return False, "Arquivo não encontrado no caminho especificado."
     
-    # Check if it's a file (not a directory)
+    # Verifica se é um arquivo (não um diretório)
     if not os.path.isfile(file_path):
         return False, "O caminho especificado não é um arquivo."
     
-    # Check file extension
+    # Verifica extensão do arquivo
     if not file_path.lower().endswith('.csv'):
         return False, "Arquivo deve ter extensão .csv"
     
-    # Check if file is readable
+    # Verifica se o arquivo é legível
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
-            f.read(1)  # Try to read first character
+            f.read(1)  # Tenta ler o primeiro caractere
     except PermissionError:
         return False, "Sem permissão para ler o arquivo."
     except UnicodeDecodeError:
-        # Try with different encodings
+        # Tenta com diferentes encodings
         try:
             with open(file_path, 'r', encoding='latin-1') as f:
                 f.read(1)
@@ -111,7 +109,7 @@ def validate_csv_file_path(file_path):
     return True, file_path
 
 def get_user_input_with_validation(prompt, validator_func, max_attempts=3):
-    """Get user input with validation and retry mechanism"""
+    # Obtém entrada do usuário com validação e mecanismo de retry
     for attempt in range(max_attempts):
         user_input = input(prompt).strip()
         is_valid, message = validator_func(user_input)
@@ -133,7 +131,7 @@ def get_user_input_with_validation(prompt, validator_func, max_attempts=3):
 # ============================================================================
 
 def load_config():
-    """Load configuration from appsettings.json"""
+    # Carrega configuração do arquivo appsettings.json
     base_dir = os.path.dirname(os.path.dirname(__file__))
     config_path = os.path.join(base_dir, 'appsettings.json')
     
@@ -150,7 +148,7 @@ def load_config():
         return None
 
 def get_connection_string_from_config(config):
-    """Get connection string from config"""
+    # Obtém connection string da configuração
     if not config:
         return None
         
@@ -165,7 +163,7 @@ def get_connection_string_from_config(config):
     return None
 
 def detect_environment_from_connection_string(conn_str):
-    """Detect environment based on connection string content"""
+    # Detecta ambiente baseado no conteúdo da connection string
     if not conn_str:
         return "Desconhecido"
     
@@ -181,7 +179,7 @@ def detect_environment_from_connection_string(conn_str):
 # ============================================================================
 
 def convert_sqlserver_conn_str(conn_str):
-    """Convert SQL Server connection string to SQLAlchemy format"""
+    # Converte connection string do SQL Server para formato SQLAlchemy
     pattern = r"Server=(.*?);Database=(.*?);User Id=(.*?);Password=(.*?);"
     match = re.match(pattern, conn_str, re.IGNORECASE)
     
@@ -195,9 +193,9 @@ def convert_sqlserver_conn_str(conn_str):
     return conn_str
 
 def check_table_exists(db_connection, table_name):
-    """Check if table exists in database"""
+    # Verifica se a tabela existe no banco de dados
     try:
-        # Use SQLAlchemy to check if table exists
+        # Usa SQLAlchemy para verificar se a tabela existe
         inspector = sqlalchemy.inspect(db_connection)
         tables = inspector.get_table_names()
         return table_name.lower() in [t.lower() for t in tables]
@@ -205,13 +203,13 @@ def check_table_exists(db_connection, table_name):
         raise Exception(f"Erro ao verificar se a tabela existe: {str(e)}")
 
 def insert_data(db_connection, table_name, data):
-    """Insert data into database table"""
-    # Check if table exists before trying to insert data
+    # Insere dados na tabela do banco de dados
+    # Verifica se a tabela existe antes de tentar inserir dados
     if not check_table_exists(db_connection, table_name):
         raise Exception(f"❌ Tabela '{table_name}' não existe no banco de dados. "
                        f"Por favor, crie a tabela antes de executar a importação.")
     
-    # Insert data using 'append' mode (will fail if table doesn't exist due to our check above)
+    # Insere dados usando modo 'append' (falhará se a tabela não existir devido à nossa verificação acima)
     data.to_sql(table_name, con=db_connection, if_exists='append', index=False)
 
 # ============================================================================
@@ -219,8 +217,8 @@ def insert_data(db_connection, table_name, data):
 # ============================================================================
 
 def read_csv(file_path, config=None):
-    """Read CSV file with configuration settings"""
-    # Get CSV settings from config or use defaults
+    # Lê arquivo CSV com configurações definidas
+    # Obtém configurações de CSV da config ou usa padrões
     separator = ';'
     encoding = 'utf-8'
     
@@ -230,7 +228,7 @@ def read_csv(file_path, config=None):
     
     try:
         df = pd.read_csv(file_path, sep=separator, quotechar='"', encoding=encoding)
-        # Remove unnamed columns
+        # Remove colunas unnamed
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
         print(f"✅ Arquivo CSV lido com sucesso: {len(df)} registros encontrados")
         return df
@@ -251,14 +249,14 @@ def read_csv(file_path, config=None):
 # ============================================================================
 
 def process_import(csv_file, db_url, table_name, config=None):
-    """Main function to process CSV import"""
-    # Read the CSV file
+    # Função principal para processar importação CSV
+    # Lê o arquivo CSV
     data = read_csv(csv_file, config)
     
-    # Connect to the database
+    # Conecta ao banco de dados
     engine = sqlalchemy.create_engine(db_url)
     
-    # Validate table exists before processing
+    # Valida se a tabela existe antes do processamento
     print(f"🔍 Verificando se a tabela '{table_name}' existe...")
     if not check_table_exists(engine, table_name):
         raise Exception(f"❌ Tabela '{table_name}' não existe no banco de dados. "
@@ -266,12 +264,12 @@ def process_import(csv_file, db_url, table_name, config=None):
     
     print(f"✅ Tabela '{table_name}' encontrada no banco de dados")
     
-    # Get chunk size from config or use default
+    # Obtém chunk size da config ou usa padrão
     chunk_size = 1000
     if config and config.get("Settings", {}).get("ChunkSize"):
         chunk_size = config["Settings"]["ChunkSize"]
     
-    # Insert data into the specified table with progress bar
+    # Insere dados na tabela especificada com barra de progresso
     total = len(data)
     print(f"📊 Total de registros a importar: {total}")
     print(f"📦 Tamanho do lote: {chunk_size}")
@@ -286,13 +284,13 @@ def process_import(csv_file, db_url, table_name, config=None):
 # ============================================================================
 
 def display_header():
-    """Display application header"""
+    # Exibe cabeçalho da aplicação
     print("=" * 60)
     print("📋 IMPORTAÇÃO DE DADOS CSV PARA SQL SERVER")
     print("=" * 60)
 
 def display_summary(environment, table_name, csv_file, chunk_size):
-    """Display import summary"""
+    # Exibe resumo da importação
     os.system('cls')
     print("=" * 60)
     print("� RESUMO DA IMPORTAÇÃO")
@@ -304,7 +302,7 @@ def display_summary(environment, table_name, csv_file, chunk_size):
     print("=" * 60)
 
 def get_table_name():
-    """Get table name from user with validation"""
+    # Obtém nome da tabela do usuário com validação
     print("\n📋 Informe o nome da tabela destino:")
     print("   • Deve começar com letra ou underscore")
     print("   • Apenas letras, números e underscores")
@@ -318,7 +316,7 @@ def get_table_name():
     )
 
 def get_csv_file_path():
-    """Get CSV file path from user with validation"""
+    # Obtém caminho do arquivo CSV do usuário com validação
     print("\n📁 Informe o caminho completo do arquivo CSV:")
     print("   • Deve ser um arquivo com extensão .csv")
     print("   • Caminho deve existir e ser acessível")
@@ -330,7 +328,7 @@ def get_csv_file_path():
     )
 
 def get_user_confirmation():
-    """Get user confirmation to proceed"""
+    # Obtém confirmação do usuário para prosseguir
     confirm = input("\n❓ Deseja prosseguir com a importação? (s/n): ").lower()
     return confirm == 's'
 
@@ -339,20 +337,20 @@ def get_user_confirmation():
 # ============================================================================
 
 def main():
-    """Main application entry point"""
+    # Ponto de entrada principal da aplicação
     try:
         os.system('cls')
         
         print("🔧 Carregando configurações...")
         
-        # Load configuration
+        # Carrega configuração
         config = load_config()
         if not config:
             print("❌ Não foi possível carregar as configurações. Verifique o arquivo appsettings.json")
             input("Pressione Enter para sair...")
             return False
         
-        # Get database connection string from config (required)
+        # Obtém connection string do banco de dados da config (obrigatório)
         db_url = get_connection_string_from_config(config)
         if not db_url:
             print("❌ Connection string não encontrada na configuração!")
@@ -362,26 +360,26 @@ def main():
         
         display_header()
         
-        # Get table name with validation
+        # Obtém nome da tabela com validação
         table_name = get_table_name()
         if not table_name:
             print("❌ Nome da tabela inválido. Encerrando aplicação.")
             input("Pressione Enter para sair...")
             return False
         
-        # Get CSV file path with validation
+        # Obtém caminho do arquivo CSV com validação
         csv_file = get_csv_file_path()
         if not csv_file:
             print("❌ Caminho do arquivo inválido. Encerrando aplicação.")
             input("Pressione Enter para sair...")
             return False
         
-        # Show summary before processing
+        # Mostra resumo antes do processamento
         environment = detect_environment_from_connection_string(db_url)
         chunk_size = config.get('Settings', {}).get('ChunkSize', 1000)
         display_summary(environment, table_name, csv_file, chunk_size)
         
-        # Get user confirmation
+        # Obtém confirmação do usuário
         if not get_user_confirmation():
             print("❌ Importação cancelada pelo usuário.")
             input("Pressione Enter para sair...")
@@ -389,7 +387,7 @@ def main():
         
         print("\n🚀 Iniciando importação...")
         
-        # Process the import
+        # Processa a importação
         db_url = convert_sqlserver_conn_str(db_url)
         process_import(csv_file, db_url, table_name, config)
         

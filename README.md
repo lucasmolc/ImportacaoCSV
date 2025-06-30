@@ -1,31 +1,29 @@
-# CSV Import Tool
+# Ferramenta de Importação CSV para SQL Server
 
-Uma aplicação Python profissional para importar dados de arquivos CSV para bancos SQL Server.
+Uma aplicação Python profissional para importar dados de arquivos CSV para bancos de dados SQL Server com validação rigorosa e controle de integridade.
 
 ## 🚀 Características
 
+- **Validação de Tabela**: Verificação obrigatória de existência da tabela antes da importação
 - **Validação Rigorosa**: Validação completa de nomes de tabela e arquivos CSV
 - **Interface Intuitiva**: Interface visual clara com feedback em tempo real
 - **Processamento em Lotes**: Importação otimizada com processamento em chunks
-- **Detecção de Ambiente**: Identificação automática do ambiente (Produção/Homologação/Desenvolvimento)
+- **Detecção de Ambiente**: Identificação automática do ambiente (Produção/Homologação)
 - **Configuração Flexível**: Sistema de configuração baseado em JSON
 - **Tratamento de Erros**: Sistema robusto de tratamento de erros e validações
 - **Suporte Multi-Encoding**: Suporte automático para UTF-8 e Latin-1
+- **Controle de Schema**: Impede criação automática de tabelas no banco de dados
 
 ## 📁 Estrutura do Projeto
 
 ```
 ImportacaoCSV/
 ├── src/
-│   ├── main.py              # Aplicação principal
-│   └── utils.py             # Utilitários (futuro)
-├── tests/                   # Testes automatizados
-│   ├── test_main.py         # Testes unitários
-│   ├── run_automated_tests.py # Script de testes
-│   └── mock_data/           # Dados para testes
-├── appsettings.json         # Configuração da aplicação
+│   └── main.py              # Aplicação principal
+├── appsettings.json         # Configuração da aplicação (ignorado pelo Git)
 ├── requirements.txt         # Dependências Python
 ├── .gitignore              # Arquivos ignorados pelo Git
+├── LICENSE                 # Licença do projeto
 └── README.md               # Esta documentação
 ```
 
@@ -52,6 +50,8 @@ ImportacaoCSV/
 - **ChunkSize**: Número de registros processados por lote (padrão: 1000)
 - **CsvSeparator**: Separador usado no arquivo CSV (padrão: ";")
 - **CsvEncoding**: Codificação do arquivo CSV (padrão: "utf-8")
+
+⚠️ **Importante**: O arquivo `appsettings.json` é ignorado pelo Git por questões de segurança. Crie uma cópia local baseada no exemplo acima.
 
 ## 🔧 Instalação e Configuração
 
@@ -89,11 +89,16 @@ python src/main.py
 
 ### Fluxo de Uso
 
-1. **Carregamento**: A aplicação carrega as configurações automaticamente
-2. **Nome da Tabela**: Informe o nome da tabela destino (com validação)
-3. **Arquivo CSV**: Informe o caminho completo do arquivo CSV
-4. **Confirmação**: Revise o resumo e confirme a importação
-5. **Processamento**: Acompanhe o progresso da importação
+1. **Configuração**: Certifique-se de que o arquivo `appsettings.json` está configurado
+2. **Preparação**: Verifique se a tabela destino **JÁ EXISTE** no banco de dados
+3. **Execução**: Execute a aplicação e siga as instruções
+4. **Nome da Tabela**: Informe o nome da tabela destino (com validação)
+5. **Arquivo CSV**: Informe o caminho completo do arquivo CSV
+6. **Validação**: O sistema verificará se a tabela existe no banco
+7. **Confirmação**: Revise o resumo e confirme a importação
+8. **Processamento**: Acompanhe o progresso da importação
+
+⚠️ **IMPORTANTE**: A tabela destino DEVE existir no banco de dados. A aplicação NÃO criará tabelas automaticamente.
 
 ### Exemplo de Execução
 
@@ -111,6 +116,7 @@ python src/main.py
    • Apenas letras, números e underscores
    • Máximo 128 caracteres
    • Não pode ser palavra reservada do SQL
+   ⚠️  A tabela DEVE EXISTIR no banco de dados
 
 ➤ Nome da tabela: funcionarios
 
@@ -121,10 +127,13 @@ python src/main.py
 
 ➤ Caminho do arquivo CSV: C:\dados\funcionarios.csv
 
+🔍 Verificando se a tabela 'funcionarios' existe...
+✅ Tabela 'funcionarios' encontrada no banco de dados
+
 ============================================================
 📊 RESUMO DA IMPORTAÇÃO
 ============================================================
-🎯 Ambiente: Desenvolvimento
+🎯 Ambiente: Homologação
 🗃️ Tabela destino: funcionarios
 📄 Arquivo CSV: C:\dados\funcionarios.csv
 📦 Tamanho do lote: 1000
@@ -150,6 +159,7 @@ Importando linhas: 100%|██████████| 2/2 [00:02<00:00, 1.2it/
 - ✅ Deve começar com letra ou underscore
 - ✅ Apenas letras, números e underscores
 - ✅ Não pode ser palavra reservada do SQL Server
+- ✅ **Tabela deve existir no banco de dados**
 
 ### Validação de Arquivo CSV
 
@@ -160,43 +170,48 @@ Importando linhas: 100%|██████████| 2/2 [00:02<00:00, 1.2it/
 - ✅ Suporte para caminhos com aspas
 - ✅ Tentativa automática de diferentes encodings
 
+### Validação de Banco de Dados
+
+- ✅ Verificação de existência da tabela antes da importação
+- ✅ Conexão com o banco validada antes do processamento
+- ✅ Tratamento de erros de conectividade
+
 ## 🎯 Detecção de Ambiente
 
 A aplicação detecta automaticamente o ambiente baseado na connection string:
 
 - **Produção**: Contém "pjus-producao"
-- **Homologação**: Contém "homolog" ou "hml"
-- **Desenvolvimento**: Contém "dev" ou "localhost"
-- **Personalizado**: Outros casos
+- **Homologação**: Outros casos (padrão)
 
 ## 🧪 Testes
 
-O projeto inclui um sistema completo de testes automatizados:
+O projeto suporta testes manuais através da execução direta:
 
 ```bash
-# Executar testes automatizados
-cd tests
-python run_automated_tests.py
-
-# Executar testes com pytest
-pytest test_main.py -v
+# Executar a aplicação para testes
+python src/main.py
 ```
+
+Para testes automatizados, considere implementar validações com dados de mock.
 
 ## 📊 Características Técnicas
 
+- **Validação de Tabela**: Verificação obrigatória de existência antes da importação
 - **Processamento em Chunks**: Otimizado para arquivos grandes
 - **Progress Bar**: Feedback visual do progresso
 - **Auto-instalação**: Instala dependências automaticamente
 - **Tratamento de Encoding**: Suporte UTF-8 e Latin-1
 - **Sistema de Retry**: Até 3 tentativas para inputs inválidos
 - **Cleanup de Dados**: Remove colunas unnamed automaticamente
+- **Fail-Fast**: Falha rapidamente se requisitos não forem atendidos
 
 ## 🔒 Segurança
 
-- Connection strings podem ser configuradas por ambiente
+- Arquivo de configuração ignorado pelo Git (.gitignore)
 - Validação rigorosa de inputs do usuário
 - Proteção contra SQL injection via SQLAlchemy
 - Tratamento seguro de senhas com URL encoding
+- Controle de schema - não cria tabelas automaticamente
 
 ## 🐛 Troubleshooting
 
@@ -213,8 +228,19 @@ pytest test_main.py -v
    - O sistema tenta automaticamente UTF-8 e Latin-1
    - Verifique a codificação do arquivo CSV
 
-4. **"Table not found"**
-   - A tabela será criada automaticamente se não existir
+4. **"Tabela não encontrada"**
+   - Certifique-se de que a tabela existe no banco de dados
+   - A aplicação NÃO cria tabelas automaticamente
+   - Verifique se o nome da tabela está correto
+
+5. **"Connection failed"**
+   - Verifique a connection string no appsettings.json
+   - Confirme se o servidor SQL está acessível
+   - Valide as credenciais de acesso
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo LICENSE para detalhes.
 
 ## 🤝 Contribuindo
 
@@ -224,13 +250,3 @@ pytest test_main.py -v
 4. Faça commit das mudanças
 5. Push para a branch
 6. Abra um Pull Request
-
-## 📄 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo LICENSE para detalhes.
-
-This will read the data from the specified CSV file and insert it into the chosen database table.
-
-## Contributing
-
-Feel free to submit issues or pull requests if you have suggestions or improvements for this project.
