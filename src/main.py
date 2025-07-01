@@ -285,6 +285,7 @@ def process_import(csv_file, db_url, table_name, config=None):
 
 def display_header():
     # Exibe cabeçalho da aplicação
+    os.system('cls')
     print("=" * 60)
     print("📋 IMPORTAÇÃO DE DADOS CSV PARA SQL SERVER")
     print("=" * 60)
@@ -303,6 +304,7 @@ def display_summary(environment, table_name, csv_file, chunk_size):
 
 def get_table_name():
     # Obtém nome da tabela do usuário com validação
+    display_header()
     print("\n📋 Informe o nome da tabela destino:")
     print("   • Deve começar com letra ou underscore")
     print("   • Apenas letras, números e underscores")
@@ -317,6 +319,7 @@ def get_table_name():
 
 def get_csv_file_path():
     # Obtém caminho do arquivo CSV do usuário com validação
+    display_header()
     print("\n📁 Informe o caminho completo do arquivo CSV:")
     print("   • Deve ser um arquivo com extensão .csv")
     print("   • Caminho deve existir e ser acessível")
@@ -347,7 +350,6 @@ def main():
         config = load_config()
         if not config:
             print("❌ Não foi possível carregar as configurações. Verifique o arquivo appsettings.json")
-            input("Pressione Enter para sair...")
             return False
         
         # Obtém connection string do banco de dados da config (obrigatório)
@@ -355,23 +357,18 @@ def main():
         if not db_url:
             print("❌ Connection string não encontrada na configuração!")
             print("   Verifique se o arquivo appsettings.json está configurado corretamente.")
-            input("Pressione Enter para sair...")
             return False
-        
-        display_header()
         
         # Obtém nome da tabela com validação
         table_name = get_table_name()
         if not table_name:
             print("❌ Nome da tabela inválido. Encerrando aplicação.")
-            input("Pressione Enter para sair...")
             return False
         
         # Obtém caminho do arquivo CSV com validação
         csv_file = get_csv_file_path()
         if not csv_file:
             print("❌ Caminho do arquivo inválido. Encerrando aplicação.")
-            input("Pressione Enter para sair...")
             return False
         
         # Mostra resumo antes do processamento
@@ -382,7 +379,6 @@ def main():
         # Obtém confirmação do usuário
         if not get_user_confirmation():
             print("❌ Importação cancelada pelo usuário.")
-            input("Pressione Enter para sair...")
             return False
         
         print("\n🚀 Iniciando importação...")
