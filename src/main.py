@@ -44,6 +44,10 @@ def validate_table_name(table_name):
     
     table_name = table_name.strip()
     
+    # Entrada especial '#' para criar nova tabela temporária
+    if table_name == '#':
+        return True, "CREATE_TEMP_TABLE"
+    
     # Verifica comprimento (SQL Server max identifier length é 128)
     if len(table_name) > 128:
         return False, "Nome da tabela não pode ter mais de 128 caracteres."
@@ -116,7 +120,12 @@ def get_user_input_with_validation(prompt, validator_func, max_attempts=3):
         is_valid, message = validator_func(user_input)
         
         if is_valid:
-            return message if isinstance(message, str) and message != "Nome válido." else user_input
+            # Se message é o valor processado (como um inteiro), retorna ele
+            # Se não, retorna user_input (para casos de validação simples)
+            if isinstance(message, (str, int)) and message != "Nome válido.":
+                return message
+            else:
+                return user_input
         
         print(f"❌ {message}")
         if attempt < max_attempts - 1:
@@ -126,6 +135,161 @@ def get_user_input_with_validation(prompt, validator_func, max_attempts=3):
             return None
     
     return None
+
+# ============================================================================
+# TEMP TABLE CREATION FUNCTIONS
+# ============================================================================
+
+def validate_temp_table_name(table_name):
+    # Valida nome de tabela temporária (sem o #)
+    if not table_name or not table_name.strip():
+        return False, "Nome da tabela temporária não pode estar vazio."
+    
+    table_name = table_name.strip()
+    
+    if len(table_name) > 120:  # Reserva espaço para o #
+        return False, "Nome da tabela temporária não pode ter mais de 120 caracteres."
+    
+    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
+        return False, "Nome deve começar com letra ou underscore e conter apenas letras, números e underscores."
+    
+    return True, table_name
+
+def validate_column_count(count_str):
+    # Valida quantidade de colunas
+    try:
+        count = int(count_str.strip())
+        if count < 1:
+            return False, "Quantidade de colunas deve ser maior que zero."
+        if count > 50:
+            return False, "Máximo de 50 colunas permitido."
+        return True, count
+    except ValueError:
+        return False, "Deve ser um número inteiro válido."
+
+def validate_column_name(col_name):
+    # Valida nome de coluna
+    if not col_name or not col_name.strip():
+        return False, "Nome da coluna não pode estar vazio."
+    
+    col_name = col_name.strip()
+    
+    if len(col_name) > 128:
+        return False, "Nome da coluna não pode ter mais de 128 caracteres."
+    
+    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col_name):
+        return False, "Nome deve começar com letra ou underscore e conter apenas letras, números e underscores."
+    
+    return True, col_name
+
+def validate_data_type(data_type):
+    # Valida tipo de dado SQL Server
+    data_type = data_type.strip().upper()
+    
+    # Tipos básicos permitidos
+    basic_types = ['INT', 'BIGINT', 'SMALLINT', 'TINYINT', 'BIT', 'DECIMAL', 'NUMERIC', 
+                   'FLOAT', 'REAL', 'MONEY', 'SMALLMONEY', 'DATE', 'TIME', 'DATETIME', 
+                   'DATETIME2', 'SMALLDATETIME', 'DATETIMEOFFSET', 'TIMESTAMP']
+    
+    # Tipos com parâmetros (VARCHAR, NVARCHAR, etc.)
+    if any(data_type.startswith(t) for t in ['VARCHAR', 'NVARCHAR', 'CHAR', 'NCHAR']):
+        if re.match(r'^N?(VAR)?CHAR\(\d+\)$', data_type) or re.match(r'^N?(VAR)?CHAR\(MAX\)$', data_type):
+            return True, data_type
+        else:
+            return False, "Formato inválido. Use: VARCHAR(50), NVARCHAR(100), CHAR(10) ou VARCHAR(MAX)"
+    
+    if data_type in basic_types:
+        return True, data_type
+    
+    return False, f"Tipo de dado não reconhecido. Tipos válidos: {', '.join(basic_types)}, VARCHAR(n), NVARCHAR(n), CHAR(n), NCHAR(n)"
+
+def get_temp_table_specifications():
+    # Coleta especificações para criar tabela ImportacaoCSV
+    os.system('cls')
+    print("=" * 60)
+    print("🔧 CRIAÇÃO DE TABELA ImportacaoCSV")
+    print("=" * 60)
+    
+    # Nome fixo da tabela
+    full_table_name = "ImportacaoCSV"
+    print(f"\n📋 A tabela será criada com o nome: {full_table_name}")
+    print("⚠️  Se a tabela já existir, será removida e recriada!")
+    
+    # Quantidade de colunas
+    print(f"\n📊 Quantas colunas terá a tabela '{full_table_name}'?")
+    col_count = get_user_input_with_validation(
+        "➤ Quantidade: ",
+        validate_column_count
+    )
+    if not col_count:
+        return None
+    
+    # Especificações das colunas
+    columns = []
+    print(f"\n🔧 Configure as {col_count} colunas:")
+    
+    for i in range(col_count):
+        print(f"\n--- Coluna {i + 1} ---")
+        
+        # Nome da coluna
+        col_name = get_user_input_with_validation(
+            f"Nome da coluna {i + 1}: ",
+            validate_column_name
+        )
+        if not col_name:
+            return None
+        
+        # Tipo de dado
+        print("Tipos comuns: NVARCHAR(100), INT, DATETIME, BIT, DECIMAL(10,2)")
+        col_type = get_user_input_with_validation(
+            f"Tipo de dado: ",
+            validate_data_type
+        )
+        if not col_type:
+            return None
+        
+        columns.append({"name": col_name, "type": col_type})
+    
+    return {
+        "table_name": full_table_name,
+        "columns": columns
+    }
+
+def create_temp_table(db_connection, table_specs):
+    # Cria tabela ImportacaoCSV no banco de dados
+    table_name = table_specs["table_name"]
+    columns = table_specs["columns"]
+    
+    # Gera comando CREATE TABLE
+    column_definitions = []
+    for col in columns:
+        column_definitions.append(f"[{col['name']}] {col['type']}")
+    
+    newline = '\n'
+    separator = f',{newline}    '
+    create_sql = f"CREATE TABLE {table_name} ({newline}    {separator.join(column_definitions)}{newline})"
+    
+    # SQL para remover tabela se existir
+    drop_sql = f"IF OBJECT_ID('{table_name}', 'U') IS NOT NULL DROP TABLE {table_name}"
+    
+    print(f"🔧 Criando tabela: {table_name}")
+    print(f"🗑️  Removendo tabela existente (se houver)...")
+    print(f"📄 SQL: {drop_sql}")
+    print(f"📄 SQL: {create_sql}")
+    
+    try:
+        with db_connection.connect() as conn:
+            # Remove tabela se existir
+            conn.execute(sqlalchemy.text(drop_sql))
+            # Cria nova tabela
+            conn.execute(sqlalchemy.text(create_sql))
+            conn.commit()
+        
+        print(f"✅ Tabela '{table_name}' criada com sucesso!")
+        return True
+    except Exception as e:
+        print(f"❌ Erro ao criar tabela: {str(e)}")
+        return False
 
 # ============================================================================
 # CONFIGURATION MANAGEMENT
@@ -196,21 +360,28 @@ def convert_sqlserver_conn_str(conn_str):
 def check_table_exists(db_connection, table_name):
     # Verifica se a tabela existe no banco de dados
     try:
-        # Usa SQLAlchemy para verificar se a tabela existe
-        inspector = sqlalchemy.inspect(db_connection)
-        tables = inspector.get_table_names()
-        return table_name.lower() in [t.lower() for t in tables]
+        # Para tabelas temporárias (que começam com #), assume que existem
+        # Tabelas temporárias têm escopo de sessão e podem não ser visíveis em outras conexões
+        if table_name.startswith('#'):
+            print(f"⚠️  Tabela temporária detectada: {table_name}. Pulando verificação de existência.")
+            return True
+        else:
+            # Para tabelas normais, usa SQLAlchemy inspector
+            inspector = sqlalchemy.inspect(db_connection)
+            tables = inspector.get_table_names()
+            return table_name.lower() in [t.lower() for t in tables]
     except Exception as e:
         raise Exception(f"Erro ao verificar se a tabela existe: {str(e)}")
 
 def insert_data(db_connection, table_name, data):
     # Insere dados na tabela do banco de dados
-    # Verifica se a tabela existe antes de tentar inserir dados
-    if not check_table_exists(db_connection, table_name):
-        raise Exception(f"❌ Tabela '{table_name}' não existe no banco de dados. "
-                       f"Por favor, crie a tabela antes de executar a importação.")
+    # Para tabelas temporárias (que começam com #), não verifica existência pois já foi verificada antes
+    if not table_name.startswith('#'):
+        if not check_table_exists(db_connection, table_name):
+            raise Exception(f"❌ Tabela '{table_name}' não existe no banco de dados. "
+                           f"Por favor, crie a tabela antes de executar a importação.")
     
-    # Insere dados usando modo 'append' (falhará se a tabela não existir devido à nossa verificação acima)
+    # Insere dados usando modo 'append'
     data.to_sql(table_name, con=db_connection, if_exists='append', index=False)
 
 # ============================================================================
@@ -275,6 +446,7 @@ def process_import(csv_file, db_url, table_name, config=None):
     print(f"📊 Total de registros a importar: {total}")
     print(f"📦 Tamanho do lote: {chunk_size}")
     
+    # Insere dados na tabela usando o método padrão
     for start in tqdm(range(0, total, chunk_size), desc="Importando linhas"):
         end = min(start + chunk_size, total)
         chunk = data.iloc[start:end]
@@ -307,11 +479,13 @@ def get_table_name():
     # Obtém nome da tabela do usuário com validação
     display_header()
     print("\n📋 Informe o nome da tabela destino:")
-    print("   • Deve começar com letra, underscore ou # (tabelas temporárias)")
+    print("   • Para tabela existente: digite o nome completo")
+    print("   • Para CRIAR nova tabela 'ImportacaoCSV': digite apenas '#'")
+    print("   • Nomes devem começar com letra, underscore ou #")
     print("   • Apenas letras, números e underscores")
     print("   • Máximo 128 caracteres")
     print("   • Não pode ser palavra reservada do SQL")
-    print("   ⚠️  A tabela DEVE EXISTIR no banco de dados")
+    print("   💡 Se digitar '#', será criada tabela 'ImportacaoCSV' (DROP se existir)")
     
     return get_user_input_with_validation(
         "\n➤ Nome da tabela: ",
@@ -361,10 +535,21 @@ def main():
             return False
         
         # Obtém nome da tabela com validação
-        table_name = get_table_name()
-        if not table_name:
+        table_name_result = get_table_name()
+        if not table_name_result:
             print("❌ Nome da tabela inválido. Encerrando aplicação.")
             return False
+        
+        # Verifica se deve criar nova tabela temporária
+        temp_table_specs = None
+        if table_name_result == "CREATE_TEMP_TABLE":
+            temp_table_specs = get_temp_table_specifications()
+            if not temp_table_specs:
+                print("❌ Especificações da tabela inválidas. Encerrando aplicação.")
+                return False
+            table_name = temp_table_specs["table_name"]
+        else:
+            table_name = table_name_result
         
         # Obtém caminho do arquivo CSV com validação
         csv_file = get_csv_file_path()
@@ -384,8 +569,17 @@ def main():
         
         print("\n🚀 Iniciando importação...")
         
-        # Processa a importação
+        # Converte connection string e cria engine
         db_url = convert_sqlserver_conn_str(db_url)
+        engine = sqlalchemy.create_engine(db_url)
+        
+        # Se deve criar tabela temporária, cria antes da importação
+        if temp_table_specs:
+            if not create_temp_table(engine, temp_table_specs):
+                print("❌ Falha ao criar tabela temporária. Encerrando aplicação.")
+                return False
+        
+        # Processa a importação
         process_import(csv_file, db_url, table_name, config)
         
         print("\n✅ Importação concluída com sucesso!")
