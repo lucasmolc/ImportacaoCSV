@@ -203,93 +203,93 @@ def validate_data_type(data_type):
     
     return False, f"Tipo de dado não reconhecido. Tipos válidos: {', '.join(basic_types)}, VARCHAR(n), NVARCHAR(n), CHAR(n), NCHAR(n)"
 
-def get_temp_table_specifications():
-    # Coleta especificações para criar tabela ImportacaoCSV
+def get_table_structure(db_connection, table_name):
+    # Obtém estrutura da tabela (colunas e tipos)
+    try:
+        query = """
+        SELECT 
+            COLUMN_NAME,
+            DATA_TYPE,
+            CHARACTER_MAXIMUM_LENGTH,
+            IS_NULLABLE
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_NAME = :table_name
+        ORDER BY ORDINAL_POSITION
+        """
+        
+        with db_connection.connect() as conn:
+            result = conn.execute(sqlalchemy.text(query), {'table_name': table_name})
+            columns = []
+            for row in result:
+                col_info = {
+                    'name': row[0],
+                    'type': row[1],
+                    'length': row[2],
+                    'nullable': row[3]
+                }
+                # Formatar tipo com tamanho se aplicável
+                if col_info['type'] in ['varchar', 'nvarchar', 'char', 'nchar'] and col_info['length']:
+                    col_info['formatted_type'] = f"{col_info['type'].upper()}({col_info['length']})"
+                else:
+                    col_info['formatted_type'] = col_info['type'].upper()
+                
+                columns.append(col_info)
+            
+            return columns
+    except Exception as e:
+        raise Exception(f"Erro ao obter estrutura da tabela: {str(e)}")
+
+def check_importacao_table(db_connection):
+    # Verifica se tabela ImportacaoCSV existe e mostra sua estrutura
     os.system('cls')
     print("=" * 60)
-    print("🔧 CRIAÇÃO DE TABELA ImportacaoCSV")
+    print("� VERIFICAÇÃO DA TABELA ImportacaoCSV")
     print("=" * 60)
     
-    # Nome fixo da tabela
-    full_table_name = "ImportacaoCSV"
-    print(f"\n📋 A tabela será criada com o nome: {full_table_name}")
-    print("⚠️  Se a tabela já existir, será removida e recriada!")
+    table_name = "ImportacaoCSV"
     
-    # Quantidade de colunas
-    print(f"\n📊 Quantas colunas terá a tabela '{full_table_name}'?")
-    col_count = get_user_input_with_validation(
-        "➤ Quantidade: ",
-        validate_column_count
-    )
-    if not col_count:
+    # Verifica se a tabela existe
+    if not check_table_exists(db_connection, table_name):
+        print(f"\n❌ A tabela '{table_name}' não existe no banco de dados.")
+        print("   Para usar esta funcionalidade, a tabela deve existir previamente.")
+        print("   Crie a tabela manualmente ou use outro nome de tabela.")
         return None
     
-    # Especificações das colunas
-    columns = []
-    print(f"\n🔧 Configure as {col_count} colunas:")
-    
-    for i in range(col_count):
-        print(f"\n--- Coluna {i + 1} ---")
-        
-        # Nome da coluna
-        col_name = get_user_input_with_validation(
-            f"Nome da coluna {i + 1}: ",
-            validate_column_name
-        )
-        if not col_name:
-            return None
-        
-        # Tipo de dado
-        print("Tipos comuns: NVARCHAR(100), INT, DATETIME, BIT, DECIMAL(10,2)")
-        col_type = get_user_input_with_validation(
-            f"Tipo de dado: ",
-            validate_data_type
-        )
-        if not col_type:
-            return None
-        
-        columns.append({"name": col_name, "type": col_type})
-    
-    return {
-        "table_name": full_table_name,
-        "columns": columns
-    }
-
-def create_temp_table(db_connection, table_specs):
-    # Cria tabela ImportacaoCSV no banco de dados
-    table_name = table_specs["table_name"]
-    columns = table_specs["columns"]
-    
-    # Gera comando CREATE TABLE
-    column_definitions = []
-    for col in columns:
-        column_definitions.append(f"[{col['name']}] {col['type']}")
-    
-    newline = '\n'
-    separator = f',{newline}    '
-    create_sql = f"CREATE TABLE {table_name} ({newline}    {separator.join(column_definitions)}{newline})"
-    
-    # SQL para remover tabela se existir
-    drop_sql = f"IF OBJECT_ID('{table_name}', 'U') IS NOT NULL DROP TABLE {table_name}"
-    
-    print(f"🔧 Criando tabela: {table_name}")
-    print(f"🗑️  Removendo tabela existente (se houver)...")
-    print(f"📄 SQL: {drop_sql}")
-    print(f"📄 SQL: {create_sql}")
-    
+    # Obtém estrutura da tabela
     try:
-        with db_connection.connect() as conn:
-            # Remove tabela se existir
-            conn.execute(sqlalchemy.text(drop_sql))
-            # Cria nova tabela
-            conn.execute(sqlalchemy.text(create_sql))
-            conn.commit()
+        columns = get_table_structure(db_connection, table_name)
         
-        print(f"✅ Tabela '{table_name}' criada com sucesso!")
-        return True
+        print(f"\n✅ Tabela '{table_name}' encontrada!")
+        print(f"\n📋 Estrutura atual da tabela:")
+        print("-" * 50)
+        
+        for i, col in enumerate(columns, 1):
+            nullable_text = "NULL" if col['nullable'] == 'YES' else "NOT NULL"
+            print(f"  {i:2d}. {col['name']:20} {col['formatted_type']:15} {nullable_text}")
+        
+        print("-" * 50)
+        print(f"Total de colunas: {len(columns)}")
+        
+        # Confirmação do usuário
+        print(f"\n❓ A estrutura da tabela '{table_name}' está adequada para sua importação?")
+        print("   s = Sim, continuar com a importação")
+        print("   n = Não, encerrar aplicação")
+        
+        confirm = input("\n➤ Confirma a estrutura? (s/n): ").lower().strip()
+        
+        if confirm == 's':
+            print(f"\n✅ Estrutura confirmada! Prosseguindo com a importação...")
+            return table_name
+        else:
+            print(f"\n❌ Estrutura não confirmada. Encerrando aplicação.")
+            print("   Ajuste a estrutura da tabela conforme necessário e execute novamente.")
+            return None
+            
     except Exception as e:
-        print(f"❌ Erro ao criar tabela: {str(e)}")
-        return False
+        print(f"\n❌ Erro ao verificar estrutura da tabela: {str(e)}")
+        return None
+
+
 
 # ============================================================================
 # CONFIGURATION MANAGEMENT
@@ -480,12 +480,12 @@ def get_table_name():
     display_header()
     print("\n📋 Informe o nome da tabela destino:")
     print("   • Para tabela existente: digite o nome completo")
-    print("   • Para CRIAR nova tabela 'ImportacaoCSV': digite apenas '#'")
+    print("   • Para VERIFICAR tabela 'ImportacaoCSV': digite apenas '#'")
     print("   • Nomes devem começar com letra, underscore ou #")
     print("   • Apenas letras, números e underscores")
     print("   • Máximo 128 caracteres")
     print("   • Não pode ser palavra reservada do SQL")
-    print("   💡 Se digitar '#', será criada tabela 'ImportacaoCSV' (DROP se existir)")
+    print("   💡 Se digitar '#', será verificada a existência e estrutura da tabela 'ImportacaoCSV'")
     
     return get_user_input_with_validation(
         "\n➤ Nome da tabela: ",
@@ -540,14 +540,16 @@ def main():
             print("❌ Nome da tabela inválido. Encerrando aplicação.")
             return False
         
-        # Verifica se deve criar nova tabela temporária
-        temp_table_specs = None
+        # Verifica se deve verificar tabela ImportacaoCSV existente
         if table_name_result == "CREATE_TEMP_TABLE":
-            temp_table_specs = get_temp_table_specifications()
-            if not temp_table_specs:
-                print("❌ Especificações da tabela inválidas. Encerrando aplicação.")
+            # Converte connection string e cria engine para verificação
+            db_url_temp = convert_sqlserver_conn_str(db_url)
+            engine_temp = sqlalchemy.create_engine(db_url_temp)
+            
+            table_name = check_importacao_table(engine_temp)
+            if not table_name:
+                print("❌ Verificação da tabela ImportacaoCSV falhou. Encerrando aplicação.")
                 return False
-            table_name = temp_table_specs["table_name"]
         else:
             table_name = table_name_result
         
@@ -569,17 +571,8 @@ def main():
         
         print("\n🚀 Iniciando importação...")
         
-        # Converte connection string e cria engine
+        # Converte connection string e processa a importação
         db_url = convert_sqlserver_conn_str(db_url)
-        engine = sqlalchemy.create_engine(db_url)
-        
-        # Se deve criar tabela temporária, cria antes da importação
-        if temp_table_specs:
-            if not create_temp_table(engine, temp_table_specs):
-                print("❌ Falha ao criar tabela temporária. Encerrando aplicação.")
-                return False
-        
-        # Processa a importação
         process_import(csv_file, db_url, table_name, config)
         
         print("\n✅ Importação concluída com sucesso!")
