@@ -1,10 +1,12 @@
 # Ferramenta de Importação CSV para SQL Server
 
-Uma aplicação Python profissional para importar dados de arquivos CSV para bancos de dados SQL Server com validação rigorosa e controle de integridade.
+Uma aplicação Python profissional para importar dados de arquivos CSV para bancos de dados SQL Server com validação rigorosa, controle de integridade e **criação automática de tabelas**.
 
 ## 🚀 Características
 
 - **Validação de Tabela**: Verificação obrigatória de existência da tabela antes da importação
+- **Criação de Tabelas**: Criação automática da tabela "ImportacaoCSV" com estrutura personalizada
+- **Suporte a Tabelas Temporárias**: Compatibilidade com tabelas temporárias do SQL Server (#tabelas)
 - **Validação Rigorosa**: Validação completa de nomes de tabela e arquivos CSV
 - **Interface Intuitiva**: Interface visual clara com feedback em tempo real
 - **Processamento em Lotes**: Importação otimizada com processamento em chunks
@@ -12,7 +14,7 @@ Uma aplicação Python profissional para importar dados de arquivos CSV para ban
 - **Configuração Flexível**: Sistema de configuração baseado em JSON
 - **Tratamento de Erros**: Sistema robusto de tratamento de erros e validações
 - **Suporte Multi-Encoding**: Suporte automático para UTF-8 e Latin-1
-- **Controle de Schema**: Impede criação automática de tabelas no banco de dados
+- **Tipos de Dados SQL**: Validação completa de tipos de dados SQL Server
 
 ## 📁 Estrutura do Projeto
 
@@ -89,16 +91,27 @@ python src/main.py
 
 ### Fluxo de Uso
 
+#### Para Tabelas Existentes:
 1. **Configuração**: Certifique-se de que o arquivo `appsettings.json` está configurado
 2. **Preparação**: Verifique se a tabela destino **JÁ EXISTE** no banco de dados
 3. **Execução**: Execute a aplicação e siga as instruções
-4. **Nome da Tabela**: Informe o nome da tabela destino (com validação)
+4. **Nome da Tabela**: Informe o nome completo da tabela existente
 5. **Arquivo CSV**: Informe o caminho completo do arquivo CSV
 6. **Validação**: O sistema verificará se a tabela existe no banco
 7. **Confirmação**: Revise o resumo e confirme a importação
 8. **Processamento**: Acompanhe o progresso da importação
 
-⚠️ **IMPORTANTE**: A tabela destino DEVE existir no banco de dados. A aplicação NÃO criará tabelas automaticamente.
+#### Para Criar Nova Tabela "ImportacaoCSV":
+1. **Configuração**: Certifique-se de que o arquivo `appsettings.json` está configurado
+2. **Execução**: Execute a aplicação e siga as instruções
+3. **Nome da Tabela**: Digite apenas `#` (sustenido)
+4. **Estrutura da Tabela**: Configure as colunas (nome e tipo de dados)
+5. **Arquivo CSV**: Informe o caminho completo do arquivo CSV
+6. **Criação**: A tabela "ImportacaoCSV" será criada automaticamente
+7. **Confirmação**: Revise o resumo e confirme a importação
+8. **Processamento**: Acompanhe o progresso da importação
+
+💡 **NOVIDADE**: Digite `#` para criar automaticamente uma tabela chamada "ImportacaoCSV" com estrutura personalizada!
 
 ### Exemplo de Execução
 
@@ -112,11 +125,13 @@ python src/main.py
 ============================================================
 
 📋 Informe o nome da tabela destino:
-   • Deve começar com letra ou underscore
+   • Para tabela existente: digite o nome completo
+   • Para CRIAR nova tabela 'ImportacaoCSV': digite apenas '#'
+   • Nomes devem começar com letra, underscore ou #
    • Apenas letras, números e underscores
    • Máximo 128 caracteres
    • Não pode ser palavra reservada do SQL
-   ⚠️  A tabela DEVE EXISTIR no banco de dados
+   💡 Se digitar '#', será criada tabela 'ImportacaoCSV' (DROP se existir)
 
 ➤ Nome da tabela: funcionarios
 
@@ -150,16 +165,68 @@ Importando linhas: 100%|██████████| 2/2 [00:02<00:00, 1.2it/
 ✅ Importação concluída com sucesso!
 ```
 
+### Exemplo de Criação de Tabela "ImportacaoCSV"
+
+```
+➤ Nome da tabela: #
+
+============================================================
+🔧 CRIAÇÃO DE TABELA ImportacaoCSV
+============================================================
+
+📋 A tabela será criada com o nome: ImportacaoCSV
+⚠️  Se a tabela já existir, será removida e recriada!
+
+📊 Quantas colunas terá a tabela 'ImportacaoCSV'?
+➤ Quantidade: 3
+
+🔧 Configure as 3 colunas:
+
+--- Coluna 1 ---
+Nome da coluna 1: Nome
+Tipos comuns: NVARCHAR(100), INT, DATETIME, BIT, DECIMAL(10,2)
+Tipo de dado: NVARCHAR(100)
+
+--- Coluna 2 ---
+Nome da coluna 2: Idade
+Tipos comuns: NVARCHAR(100), INT, DATETIME, BIT, DECIMAL(10,2)
+Tipo de dado: INT
+
+--- Coluna 3 ---
+Nome da coluna 3: DataNascimento
+Tipos comuns: NVARCHAR(100), INT, DATETIME, BIT, DECIMAL(10,2)
+Tipo de dado: DATETIME
+
+🔧 Criando tabela: ImportacaoCSV
+🗑️  Removendo tabela existente (se houver)...
+📄 SQL: IF OBJECT_ID('ImportacaoCSV', 'U') IS NOT NULL DROP TABLE ImportacaoCSV
+📄 SQL: CREATE TABLE ImportacaoCSV (
+    [Nome] NVARCHAR(100),
+    [Idade] INT,
+    [DataNascimento] DATETIME
+)
+✅ Tabela 'ImportacaoCSV' criada com sucesso!
+```
+
 ## 🛡️ Validações Implementadas
 
 ### Validação de Nome de Tabela
 
 - ✅ Não pode estar vazio
 - ✅ Máximo 128 caracteres
-- ✅ Deve começar com letra ou underscore
+- ✅ Deve começar com letra, underscore ou # (tabelas temporárias)
 - ✅ Apenas letras, números e underscores
 - ✅ Não pode ser palavra reservada do SQL Server
-- ✅ **Tabela deve existir no banco de dados**
+- ✅ **Tabela deve existir no banco de dados** (exceto ao usar `#`)
+- ✅ **Suporte especial**: Digite `#` para criar tabela "ImportacaoCSV"
+
+### Validação de Criação de Tabela
+
+- ✅ Nome da tabela: deve ser alfanumérico válido
+- ✅ Quantidade de colunas: 1 a 50 colunas
+- ✅ Nome das colunas: deve seguir padrões SQL Server
+- ✅ Tipos de dados: validação completa dos tipos SQL Server suportados
+- ✅ Tipos suportados: INT, BIGINT, NVARCHAR(n), VARCHAR(n), DATETIME, BIT, DECIMAL, etc.
 
 ### Validação de Arquivo CSV
 
@@ -229,14 +296,24 @@ Para testes automatizados, considere implementar validações com dados de mock.
    - Verifique a codificação do arquivo CSV
 
 4. **"Tabela não encontrada"**
-   - Certifique-se de que a tabela existe no banco de dados
-   - A aplicação NÃO cria tabelas automaticamente
+   - Para tabelas existentes: certifique-se de que existe no banco
+   - Para criar nova tabela: use `#` como nome da tabela
    - Verifique se o nome da tabela está correto
 
 5. **"Connection failed"**
    - Verifique a connection string no appsettings.json
    - Confirme se o servidor SQL está acessível
    - Valide as credenciais de acesso
+
+6. **"Erro ao criar tabela"**
+   - Verifique se você tem permissões CREATE TABLE no banco
+   - Confirme se os tipos de dados estão corretos
+   - Verifique se não há conflitos de nomenclatura
+
+7. **"Tabelas temporárias não funcionam"**
+   - Tabelas temporárias (#) são específicas da sessão
+   - Use `#` para criar tabela permanente "ImportacaoCSV"
+   - A nova funcionalidade resolve problemas de escopo de sessão
 
 ## 📄 Licença
 
