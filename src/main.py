@@ -48,9 +48,10 @@ def validate_table_name(table_name):
     if len(table_name) > 128:
         return False, "Nome da tabela não pode ter mais de 128 caracteres."
     
-    # Verifica caracteres inválidos (apenas alfanuméricos e underscore permitidos)
-    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
-        return False, "Nome da tabela deve começar com letra ou underscore e conter apenas letras, números e underscores."
+    # Verifica caracteres inválidos (alfanuméricos, underscore e # para temp tables)
+    # Permite tabelas temporárias que começam com # ou tabelas normais que começam com letra/underscore
+    if not re.match(r'^(#[a-zA-Z0-9_]+|[a-zA-Z_][a-zA-Z0-9_]*)$', table_name):
+        return False, "Nome da tabela deve começar com letra, underscore ou # (para tabelas temporárias) e conter apenas letras, números e underscores."
     
     # Verifica palavras reservadas do SQL Server
     reserved_words = {
@@ -306,7 +307,7 @@ def get_table_name():
     # Obtém nome da tabela do usuário com validação
     display_header()
     print("\n📋 Informe o nome da tabela destino:")
-    print("   • Deve começar com letra ou underscore")
+    print("   • Deve começar com letra, underscore ou # (tabelas temporárias)")
     print("   • Apenas letras, números e underscores")
     print("   • Máximo 128 caracteres")
     print("   • Não pode ser palavra reservada do SQL")
